@@ -94,7 +94,7 @@ Input (URL / file)
 
 - Python **3.10+**
 - `ffmpeg` installed and on your `PATH`
-- An **OpenAI API key** (or compatible LLM provider — see [Configuration](#-configuration))
+- A **Mistral API key** — get one free at [console.mistral.ai](https://console.mistral.ai/)
 
 ### 1 — Clone the repo
 
@@ -199,7 +199,7 @@ meetingmind/
 Detects whether the source is a YouTube URL or a local path. Downloads YouTube audio via `yt-dlp`, then splits audio into fixed-size chunks using `pydub` to stay within transcription API limits.
 
 **`core/transcriber.py`**  
-Iterates over audio chunks and transcribes each with OpenAI Whisper (or a local Whisper model). Concatenates chunk transcripts into a single string.
+Iterates over audio chunks and transcribes each using **Whisper `small`** (local model via `openai-whisper`). Concatenates chunk transcripts into a single string.
 
 **`core/summarize.py`**  
 Uses an LLM prompt chain to generate a short meeting title (`generate_title`) and a structured executive summary (`summarize`) from the full transcript.
@@ -217,17 +217,13 @@ Embeds the transcript into a FAISS (or Chroma) vector store via LangChain, const
 Copy `.env.example` to `.env` and fill in the values:
 
 ```env
-# ── LLM Provider ──────────────────────────────────────────────
-OPENAI_API_KEY=sk-...
-
-# Optional: swap to a different OpenAI-compatible base URL
-# OPENAI_API_BASE=https://api.openai.com/v1
+# ── LLM Provider (Mistral) ────────────────────────────────────
+MISTRAL_API_KEY=your-mistral-api-key-here
 
 # ── Whisper ───────────────────────────────────────────────────
-# "openai" uses the OpenAI Whisper API
-# "local"  uses a locally installed whisper model
-WHISPER_BACKEND=openai
-# WHISPER_MODEL=base   # only used when WHISPER_BACKEND=local
+# Local Whisper model — no API key required
+WHISPER_BACKEND=local
+WHISPER_MODEL=small
 
 # ── RAG / Vector store ────────────────────────────────────────
 # "faiss" (default, no server needed) or "chroma"
@@ -237,16 +233,29 @@ VECTOR_STORE=faiss
 CHUNK_DURATION_MS=60000   # 60 s chunks
 ```
 
-### Supported LLM backends
+### LLM backend — Mistral AI
 
-MeetingMind is backend-agnostic at the LangChain layer. Swap `OPENAI_API_BASE` to use:
+MeetingMind uses the **[Mistral API](https://console.mistral.ai/)** for all summarisation, extraction, and RAG chat. Get your free API key at `console.mistral.ai` and paste it into `.env`.
 
-| Provider | Notes |
+| Model used | Task |
 |---|---|
-| OpenAI (default) | `gpt-4o`, `gpt-3.5-turbo` |
-| Ollama | Point to `http://localhost:11434/v1` |
-| Azure OpenAI | Set `OPENAI_API_TYPE=azure` and deployment vars |
-| Any OpenAI-compatible API | e.g. Together AI, Groq, Mistral |
+| `mistral-small-latest` | Title generation, summarisation, extraction prompts |
+| `mistral-small-latest` | RAG chain Q&A |
+
+Want to swap providers? MeetingMind's LangChain layer is backend-agnostic — replace the Mistral client in `core/` with any OpenAI-compatible provider (OpenAI, Groq, Together AI, Ollama, etc.).
+
+### Transcription — Whisper `small` (local)
+
+Transcription runs **fully offline** using OpenAI's `whisper` library with the `small` model. No API key or internet connection is needed for this step — audio never leaves your machine.
+
+| Model | VRAM | Speed | Accuracy |
+|---|---|---|---|
+| `tiny` | ~1 GB | fastest | lower |
+| **`small` ✓ used here** | **~2 GB** | **fast** | **good** |
+| `medium` | ~5 GB | moderate | better |
+| `large` | ~10 GB | slowest | best |
+
+To switch models, update `WHISPER_MODEL` in `.env`.
 
 ---
 
@@ -278,18 +287,18 @@ Tests cover the individual core modules with short fixture transcripts. Audio do
 
 ```
 streamlit>=1.35
-openai>=1.30
+mistralai>=0.4
 langchain>=0.2
-langchain-openai>=0.1
+langchain-mistralai>=0.1
 langchain-community>=0.2
 faiss-cpu>=1.8
+openai-whisper>=20231117
 yt-dlp>=2024.5
 pydub>=0.25
 python-dotenv>=1.0
-tiktoken>=0.7
 ```
 
-> **Note:** For local Whisper transcription also run `pip install openai-whisper` and ensure `ffmpeg` is available.
+> **Note:** `openai-whisper` downloads the `small` model weights (~460 MB) on first run. Ensure `ffmpeg` is installed and on your `PATH` for audio processing.
 
 ---
 
