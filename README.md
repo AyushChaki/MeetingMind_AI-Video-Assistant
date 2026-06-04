@@ -327,12 +327,6 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 
 ---
 
-## 📄 License
-
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
-
----
-
 <div align="center">
 
 Built with ♥ using Python, LangChain, Whisper, and Streamlit.
