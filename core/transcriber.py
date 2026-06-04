@@ -23,12 +23,27 @@ def load_model():
 
 
 def transcribe_chunk_whisper(chunk_path: str) -> str:
+    audio = AudioSegment.from_file(chunk_path)
 
-    model = load_model()  
+    # skip empty or too-short chunks
+    if len(audio) < 1000:
+        print(f"Skipping short chunk: {chunk_path}, length={len(audio)}ms")
+        return ""
 
-    result = model.transcribe(chunk_path, task="transcribe")  
-    return result["text"]  
+    # skip silent chunks
+    if audio.dBFS == float("-inf") or audio.dBFS < -45:
+        print(f"Skipping silent chunk: {chunk_path}, dBFS={audio.dBFS}")
+        return ""
 
+    model = load_model()
+
+    try:
+        result = model.transcribe(chunk_path, task="transcribe", fp16=False)
+        return result.get("text", "").strip()
+    except Exception as e:
+        print(f"Whisper failed on {chunk_path}: {e}")
+        return ""
+     
 
 def _send_to_sarvam(piece_path: str) -> str:
     """Send one ≤30s WAV file to Sarvam and return the English transcript."""
